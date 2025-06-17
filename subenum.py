@@ -2,7 +2,6 @@ import argparse
 import requests
 import os
 import sys
-import fileinput
 import re
 import json
 from typing import Set, List
@@ -165,9 +164,7 @@ def main():
     parser.add_argument("--json", action="store_true", help="Output results in JSON format")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--timeout", type=int, default=15, help="HTTP request timeout in seconds (default: 15)")
-    args = parser.parse_args()
-
-    # Prepare filter
+    args = parser.parse_args()    # Prepare filter
     filter_pattern = None
     if args.filter:
         if '*' in args.filter:
@@ -177,7 +174,7 @@ def main():
 
     domains = []
     if args.stdin:
-        for line in fileinput.input():
+        for line in sys.stdin:
             d = line.strip()
             if d:
                 domains.append(d)

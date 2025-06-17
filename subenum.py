@@ -4,7 +4,29 @@ import os
 import sys
 import re
 import json
-from typing import Set, List
+from typing import Set, Optional
+from urllib.parse import urlparse
+
+def clean_domain(domain: str) -> Optional[str]:
+    """Clean and validate domain input"""
+    domain = domain.strip()
+    
+    # Remove protocol if present
+    if domain.startswith(('http://', 'https://')):
+        parsed = urlparse(domain)
+        domain = parsed.netloc or parsed.path
+    
+    # Remove wildcards
+    domain = domain.replace('*.', '').replace('*', '')
+    
+    # Remove leading dots
+    domain = domain.lstrip('.')
+    
+    # Basic domain validation
+    if not domain or '/' in domain or ' ' in domain:
+        return None
+        
+    return domain.lower()
 
 def fetch_crtsh(domain: str) -> Set[str]:
     url = f"https://crt.sh/?q=%25.{domain}&output=json"
@@ -168,18 +190,21 @@ def main():
     filter_pattern = None
     if args.filter:
         if '*' in args.filter:
-            filter_pattern = re.compile('^' + re.escape(args.filter).replace('\\*', '.*') + '$')
-        else:
+            filter_pattern = re.compile('^' + re.escape(args.filter).replace('\\*', '.*') + '$')        else:
             filter_pattern = re.compile(args.filter)
 
     domains = []
     if args.stdin:
         for line in sys.stdin:
-            d = line.strip()
+            d = clean_domain(line.strip())
             if d:
                 domains.append(d)
     elif args.domain:
-        domains = [args.domain.strip()]
+        d = clean_domain(args.domain.strip())
+        if d:
+            domains = [d]
+        else:
+            parser.error(f"Invalid domain: {args.domain}")
     else:
         parser.error("No domain provided. Use --stdin or provide a domain argument.")
 

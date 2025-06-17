@@ -6,6 +6,7 @@ import re
 import json
 from typing import Set, Optional
 from urllib.parse import urlparse
+from datetime import datetime
 
 def clean_domain(domain: str) -> Optional[str]:
     """Clean and validate domain input"""
@@ -182,15 +183,19 @@ def main():
     parser.add_argument("--virustotal-key", help="VirusTotal API key (or set VT_API_KEY env var)")
     parser.add_argument("--subs-only", action="store_true", help="Show only subdomains, not related domains")
     parser.add_argument("--stdin", action="store_true", help="Read domains from stdin (one per line)")
+    parser.add_argument("--auto-save", action="store_true", help="Automatically save results to timestamped file in current directory")
     parser.add_argument("--filter", help="Regex or wildcard pattern to filter subdomains (e.g. 'dev*' or '.*test.*')")
     parser.add_argument("--json", action="store_true", help="Output results in JSON format")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--timeout", type=int, default=15, help="HTTP request timeout in seconds (default: 15)")
-    args = parser.parse_args()    # Prepare filter
+    args = parser.parse_args()
+
+    # Prepare filter
     filter_pattern = None
     if args.filter:
         if '*' in args.filter:
-            filter_pattern = re.compile('^' + re.escape(args.filter).replace('\\*', '.*') + '$')        else:
+            filter_pattern = re.compile('^' + re.escape(args.filter).replace('\\*', '.*') + '$')
+        else:
             filter_pattern = re.compile(args.filter)
 
     domains = []
@@ -273,15 +278,33 @@ def main():
         print(f"\n[+] Total unique subdomains: {len(subdomains_sorted)}")
         for sub in subdomains_sorted:
             print(sub)
-    if args.output:
+    
+    # Handle file output
+    output_str = ""
+    if args.json:
+        output_str = json.dumps({
+            "domains": summary,
+            "total_unique": len(subdomains_sorted),
+            "all_subdomains": subdomains_sorted
+        }, indent=2)
+    
+    if args.output or args.auto_save:
         try:
-            with open(args.output, "w", encoding="utf-8") as f:
+            output_file = args.output
+            if args.auto_save and not args.output:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                domain_name = domains[0] if len(domains) == 1 else "multiple_domains"
+                output_file = f"subdomains_{domain_name}_{timestamp}.txt"
+            elif args.auto_save and args.output:
+                output_file = args.output
+            
+            with open(output_file, "w", encoding="utf-8") as f:
                 if args.json:
                     f.write(output_str)
                 else:
                     for sub in subdomains_sorted:
                         f.write(sub + "\n")
-            print(f"[+] Results saved to {args.output}")
+            print(f"[+] Results saved to {output_file}")
         except Exception as e:
             print(f"[!] Error saving to file: {e}")
     # Print summary
